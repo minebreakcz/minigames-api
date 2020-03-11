@@ -15,13 +15,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.sql.*;
+import java.util.*;
 
 public final class MinigameAPI extends JavaPlugin implements Listener
 {
@@ -69,6 +64,12 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
     private Connection connection;
 
+    private PreparedStatement statement_select_general;
+    private PreparedStatement statement_select_allCurrency;
+
+    private PreparedStatement statement_update_general;
+    private PreparedStatement statement_update_currency;
+
     public void openConnection(@NotNull String host, int port, @NotNull String database, @NotNull String username, @NotNull String password) throws SQLException, ClassNotFoundException
     {
         if (connection != null && !connection.isClosed())
@@ -81,6 +82,13 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
             Class.forName("com.mysql.jdbc.Driver");
             connection = DriverManager.getConnection("jdbc:mysql://" + host+ ":" + port + "/" + database, username, password);
+
+
+            statement_select_general = connection.prepareStatement("SELECT statistics, kits, active_kit FROM minigame_players WHERE player_id = UUID_TO_BIN(?) AND minigame = ? LIMIT 1");
+            statement_select_allCurrency = connection.prepareStatement("SELECT currency, amount FROM minigame_currency WHERE player_id = UUID_TO_BIN(?) LIMIT 1");
+
+            statement_update_general = connection.prepareStatement("INSERT INTO minigame_players (player_id, minigame, statistics, kits, active_kit) VALUES (UUID_TO_BIN(?), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE statistics = ?, kits = ?, active_kit = ?");
+            statement_update_currency = connection.prepareStatement("INSERT INTO minigame_currency (player_id, currency, amount) VALUES (UUID_TO_BIN(?), ?, ?) ON DUPLICATE KEY UPDATE amount = ?");
         }
     }
 
@@ -115,16 +123,33 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
     private Map<@NotNull Player, PlayerBuffer> bufferMap = new HashMap<>();
 
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     private void onPlayerJoin(PlayerJoinEvent event)
     {
         @NotNull
         Player player = event.getPlayer();
 
-        //TODO Create PlayerBuffer
+        //TODO async?
+        {
+            PlayerBuffer buffer;
+            try
+            {
+                buffer = load(player);
+            }
+            catch (Exception ex)
+            {
+                player.kickPlayer("Server closed - database problems");
+                return;
+            }
+
+            if (buffer == null)
+                buffer = new PlayerBuffer();
+
+            bufferMap.put(player, buffer);
+        }
     }
 
-    @EventHandler(priority = EventPriority.LOW)
+    @EventHandler(priority = EventPriority.HIGH)
     private void onPlayerQuit(PlayerQuitEvent event)
     {
         @NotNull
@@ -132,7 +157,8 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         @NotNull
         PlayerBuffer buffer = getPlayerBuffer(player);
 
-        //TODO Save PlayerBuffer
+        //TODO async?
+        buffer.save(player);
 
         bufferMap.remove(player);
     }
@@ -143,10 +169,12 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         return bufferMap.get(player);
     }
 
-    public static class PlayerBuffer
+    public class PlayerBuffer
     {
         @NotNull
-        public final Map<@Nullable String, @NotNull Long> Currency = new HashMap<>();
+        public final Map<@NotNull String, @NotNull Long> Currency_Old = new HashMap<>();
+        @NotNull
+        public final Map<@NotNull String, @NotNull Long> Currency = new HashMap<>();
         public void addCurrency(@NotNull String currency, int amount)
         {
             Currency.put(currency, Currency.getOrDefault(currency, (long)0) + amount);
@@ -157,8 +185,99 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         }
 
         @NotNull
-        public List<@NotNull String> Kits = new ArrayList<>();
+        public final List<@NotNull String> UnlockedKits = new ArrayList<>();
         @Nullable
         public String SelectedKit = null;
+
+        public boolean save(@NotNull Player player)
+        {
+            try
+            {
+                // Main info
+                {
+                    statement_update_general.setString(0, player.getUniqueId().toString()); // player_id (UUID)
+                    statement_update_general.setString(1, getMinigame().getCodename()); // minigame (varchar(32))
+                    statement_update_general.setString(2, "{}"); // statistics (JSON)
+                    statement_update_general.setString(3, String.join(";", UnlockedKits)); // kits (TEXT, String array separated by ';')
+                    statement_update_general.setString(4, SelectedKit); // active_kit (varchar(32))
+
+                    statement_update_general.execute();
+                }
+
+                // Currency
+                {
+                    statement_update_currency.setString(0, player.getUniqueId().toString()); // player_id (UUID)
+
+                    for(Map.Entry<@NotNull String, @NotNull Long> kvp : Currency.entrySet())
+                    {
+                        String key = kvp.getKey();
+                        long amount = kvp.getValue();
+                        if(Currency_Old.getOrDefault(key, (long)0) == amount)
+                            continue;
+
+                        statement_update_currency.setString(1, key); // currency (varchar(32))
+
+                        // amount (long)
+                        statement_update_currency.setLong(2, amount);
+                        statement_update_currency.setLong(3, amount);
+
+                        // Update in database
+                        statement_update_currency.execute();
+                        // Update in cache
+                        Currency_Old.put(key, amount);
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+    }
+
+    public PlayerBuffer load(@NotNull Player player) throws SQLException
+    {
+        PlayerBuffer buffer = new PlayerBuffer();
+
+        // Main info
+        {
+            statement_select_general.setString(0, player.getUniqueId().toString()); // player_id (UUID)
+            statement_select_general.setString(1, getMinigame().getCodename()); // minigame (varchar(32))
+
+            ResultSet result = statement_select_general.executeQuery();
+            if(result.next())
+            {
+                String statisticsJson = result.getString(0); //TODO Store statistics
+
+                @Nullable
+                String kits = result.getString(1);
+                if(kits != null)
+                    Collections.addAll(buffer.UnlockedKits, kits.split(";"));
+
+                buffer.SelectedKit = result.getString(2);
+            }
+            else
+                return null;
+        }
+
+        // Currency
+        {
+            statement_select_allCurrency.setString(0, player.getUniqueId().toString()); // player_id (UUID)
+
+            ResultSet result = statement_select_allCurrency.executeQuery();
+            while(result.next())
+            {
+                String key = result.getString(0);
+                long amount = result.getLong(1);
+
+                buffer.Currency_Old.put(key, amount);
+            }
+
+            buffer.Currency.putAll(buffer.Currency_Old);
+        }
+
+        return buffer;
     }
 }
