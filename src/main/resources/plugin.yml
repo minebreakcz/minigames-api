@@ -4,3 +4,14 @@ main: net.graymadness.minigame_api.MinigameAPI
 api-version: 1.15
 author: GrayMadness
 authors: [Abit]
+commands:
+  minigame:
+    permission: minigame.command
+    usage: /minigame help
+permissions:
+  minigame.*:
+    default: op
+    children:
+      minigame.command: true
+  minigame.command:
+    description: Access to /minigame

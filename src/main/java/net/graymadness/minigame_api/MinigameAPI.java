@@ -1,6 +1,7 @@
 package net.graymadness.minigame_api;
 
 import net.graymadness.minigame_api.api.IMinigame;
+import net.graymadness.minigame_api.command.MinigameCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -54,6 +55,8 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         {
             pm.registerEvents(this, this);
         }
+
+        new MinigameCommand(this, getCommand("minigame"));
     }
 
     @Override
