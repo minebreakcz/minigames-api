@@ -1,5 +1,13 @@
 # Database
 
+MySQL (or compatible) is used as database.
+
+```mysql
+CREATE USER 'minigame_user'@'%' IDENTIFIED BY 'a2ZZSG5Krt6sujSf';
+GRANT INSERT, UPDATE, SELECT ON minigames.minigame_currency TO 'minigame_user'@'%';
+GRANT INSERT, UPDATE, SELECT ON minigames.minigame_players TO 'minigame_user'@'%';
+```
+
 ## minigame_players
 
 | Name | Type | Null? | Description |
