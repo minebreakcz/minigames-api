@@ -2,6 +2,8 @@ package net.graymadness.minigame_api;
 
 import net.graymadness.minigame_api.api.IMinigame;
 import net.graymadness.minigame_api.command.MinigameCommand;
+import net.graymadness.minigame_api.helper.Translate;
+import net.graymadness.minigame_api.helper.item.ToolItemEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -33,6 +35,10 @@ public final class MinigameAPI extends JavaPlugin implements Listener
     public void onEnable()
     {
         instance = this;
+
+        Translate.reloadLocales();
+
+        new ToolItemEvents(this);
 
         {
             saveDefaultConfig();
@@ -132,15 +138,16 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         @NotNull
         Player player = event.getPlayer();
 
-        //TODO async?
         {
             PlayerBuffer buffer;
             try
             {
+                //TODO async?
                 buffer = load(player);
             }
             catch (Exception ex)
             {
+                System.err.println(ex);
                 player.kickPlayer("Server closed - database problems");
                 return;
             }
@@ -160,8 +167,16 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         @NotNull
         PlayerBuffer buffer = getPlayerBuffer(player);
 
-        //TODO async?
-        buffer.save(player);
+        try
+        {
+            //TODO async?
+            buffer.save(player);
+        }
+        catch (Exception ex)
+        {
+            System.err.println(ex);
+            return;
+        }
 
         bufferMap.remove(player);
     }
@@ -198,18 +213,18 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             {
                 // Main info
                 {
-                    statement_update_general.setString(0, player.getUniqueId().toString()); // player_id (UUID)
-                    statement_update_general.setString(1, getMinigame().getCodename()); // minigame (varchar(32))
-                    statement_update_general.setString(2, "{}"); // statistics (JSON)
-                    statement_update_general.setString(3, String.join(";", UnlockedKits)); // kits (TEXT, String array separated by ';')
-                    statement_update_general.setString(4, SelectedKit); // active_kit (varchar(32))
+                    statement_update_general.setString(1, player.getUniqueId().toString()); // player_id (UUID)
+                    statement_update_general.setString(2, getMinigame().getCodename()); // minigame (varchar(32))
+                    statement_update_general.setString(3, "{}"); // statistics (JSON)
+                    statement_update_general.setString(4, String.join(";", UnlockedKits)); // kits (TEXT, String array separated by ';')
+                    statement_update_general.setString(5, SelectedKit); // active_kit (varchar(32))
 
                     statement_update_general.execute();
                 }
 
                 // Currency
                 {
-                    statement_update_currency.setString(0, player.getUniqueId().toString()); // player_id (UUID)
+                    statement_update_currency.setString(1, player.getUniqueId().toString()); // player_id (UUID)
 
                     for(Map.Entry<@NotNull String, @NotNull Long> kvp : Currency.entrySet())
                     {
@@ -218,11 +233,11 @@ public final class MinigameAPI extends JavaPlugin implements Listener
                         if(Currency_Old.getOrDefault(key, (long)0) == amount)
                             continue;
 
-                        statement_update_currency.setString(1, key); // currency (varchar(32))
+                        statement_update_currency.setString(2, key); // currency (varchar(32))
 
                         // amount (long)
-                        statement_update_currency.setLong(2, amount);
                         statement_update_currency.setLong(3, amount);
+                        statement_update_currency.setLong(4, amount);
 
                         // Update in database
                         statement_update_currency.execute();
@@ -246,20 +261,20 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
         // Main info
         {
-            statement_select_general.setString(0, player.getUniqueId().toString()); // player_id (UUID)
-            statement_select_general.setString(1, getMinigame().getCodename()); // minigame (varchar(32))
+            statement_select_general.setString(1, player.getUniqueId().toString()); // player_id (UUID)
+            statement_select_general.setString(2, getMinigame().getCodename()); // minigame (varchar(32))
 
             ResultSet result = statement_select_general.executeQuery();
             if(result.next())
             {
-                String statisticsJson = result.getString(0); //TODO Store statistics
+                String statisticsJson = result.getString(1); //TODO Store statistics
 
                 @Nullable
-                String kits = result.getString(1);
+                String kits = result.getString(2);
                 if(kits != null)
                     Collections.addAll(buffer.UnlockedKits, kits.split(";"));
 
-                buffer.SelectedKit = result.getString(2);
+                buffer.SelectedKit = result.getString(3);
             }
             else
                 return null;
@@ -267,13 +282,13 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
         // Currency
         {
-            statement_select_allCurrency.setString(0, player.getUniqueId().toString()); // player_id (UUID)
+            statement_select_allCurrency.setString(1, player.getUniqueId().toString()); // player_id (UUID)
 
             ResultSet result = statement_select_allCurrency.executeQuery();
             while(result.next())
             {
-                String key = result.getString(0);
-                long amount = result.getLong(1);
+                String key = result.getString(1);
+                long amount = result.getLong(2);
 
                 buffer.Currency_Old.put(key, amount);
             }

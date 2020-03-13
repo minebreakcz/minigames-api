@@ -75,8 +75,8 @@ public class MinigameCommand implements CommandExecutor, TabCompleter
                 {
                     default:
                         break;
-                    case Warmup:
-                    case InProgress:
+                    case PostGame:
+                    case Lobby:
                         sender.sendMessage(ChatColor.RED + "Game is not running");
                         return true;
                 }

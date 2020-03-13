@@ -1,5 +1,5 @@
 name: Minigame_API
-version: ${project.version}
+version: 1.2
 main: net.graymadness.minigame_api.MinigameAPI
 api-version: 1.15
 author: GrayMadness
