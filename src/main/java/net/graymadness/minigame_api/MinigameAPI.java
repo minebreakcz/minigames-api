@@ -94,6 +94,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
     private PreparedStatement statement_select_player;
     private PreparedStatement statement_select_general;
+    private PreparedStatement statement_select_minigame_id;
     private PreparedStatement statement_select_currency_type;
 
     private PreparedStatement statement_insert_player;
@@ -117,6 +118,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
             statement_select_player = connection.prepareStatement("SELECT id FROM players WHERE uuid = UUID_TO_BIN(?) LIMIT 1");
             statement_select_general = connection.prepareStatement("SELECT statistics, kits, active_kit FROM minigames WHERE player_id = ? AND minigame = ? LIMIT 1");
+            statement_select_minigame_id = connection.prepareStatement("SELECT id FROM minigames WHERE name = ?");
             statement_select_currency_type = connection.prepareStatement("SELECT id, name FROM currency");
 
             statement_insert_player = connection.prepareStatement("INSERT INTO players (uuid, last_name) VALUES (UUID_TO_BIN(?), ?) ON DUPLICATE KEY UPDATE last_name=?");
@@ -146,13 +148,36 @@ public final class MinigameAPI extends JavaPlugin implements Listener
     }
 
     private IMinigame minigame;
+    private int minigame_id;
     public IMinigame getMinigame()
     {
         return this.minigame;
     }
-    public void setMinigame(IMinigame minigame)
+    public int getMinigameId()
+    {
+        return minigame_id;
+    }
+    public void setMinigame(@NotNull IMinigame minigame)
     {
         this.minigame = minigame;
+
+        try
+        {
+            statement_select_minigame_id.setString(1, minigame.getCodename());
+
+            ResultSet result = statement_select_minigame_id.executeQuery();
+            if(result.next())
+            {
+                minigame_id = result.getInt(1);
+            }
+            else
+                throw new RuntimeException();
+        }
+        catch (Exception ex)
+        {
+            minigame_id = 0;
+            this.setEnabled(false);
+        }
     }
 
     private final Map<@NotNull Player, Long> playerIds = new HashMap<>();
@@ -315,8 +340,8 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
         // Main info
         {
-            statement_select_general.setLong(1, getPlayerId(player)); // player_id
-            statement_select_general.setString(2, getMinigame().getCodename()); // minigame (varchar(32))
+            statement_select_general.setLong(1, getPlayerId(player)); // player_id (long)
+            statement_select_general.setInt(2, getMinigameId()); // minigame_id (integer)
 
             ResultSet result = statement_select_general.executeQuery();
             if(result.next())
