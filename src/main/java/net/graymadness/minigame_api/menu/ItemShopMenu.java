@@ -2,7 +2,7 @@ package net.graymadness.minigame_api.menu;
 
 import net.graymadness.minigame_api.helper.ChatInfo;
 import net.graymadness.minigame_api.helper.ComponentBuilder;
-import net.graymadness.minigame_api.helper.Nbt;
+import net.graymadness.minigame_api.helper.item.Nbt;
 import net.graymadness.minigame_api.helper.PriceHelper;
 import net.graymadness.minigame_api.helper.item.ItemBuilder;
 import net.md_5.bungee.api.chat.BaseComponent;

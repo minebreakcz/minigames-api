@@ -1,5 +1,5 @@
 name: Minigame_API
-version: 1.2
+version: 1.3-pre
 main: net.graymadness.minigame_api.MinigameAPI
 api-version: 1.15
 author: GrayMadness

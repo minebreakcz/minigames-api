@@ -1,4 +1,4 @@
-package net.graymadness.minigame_api.helper;
+package net.graymadness.minigame_api.helper.item;
 
 import net.minecraft.server.v1_15_R1.NBTBase;
 import net.minecraft.server.v1_15_R1.NBTTagCompound;

@@ -1,7 +1,7 @@
 package net.graymadness.minigame_api.menu.event;
 
 import net.graymadness.minigame_api.MinigameAPI;
-import net.graymadness.minigame_api.helper.Nbt;
+import net.graymadness.minigame_api.helper.item.Nbt;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Item;
 import org.bukkit.event.EventHandler;

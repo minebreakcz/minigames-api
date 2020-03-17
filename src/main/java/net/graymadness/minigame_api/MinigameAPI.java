@@ -1,5 +1,8 @@
 package net.graymadness.minigame_api;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.graymadness.minigame_api.api.IMinigame;
 import net.graymadness.minigame_api.command.MinigameCommand;
 import net.graymadness.minigame_api.helper.Translate;
@@ -63,6 +66,22 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         }
 
         new MinigameCommand(this, getCommand("minigame"));
+
+        try
+        {
+            currencyTypes.clear();
+
+            ResultSet result = statement_select_currency_type.executeQuery();
+            while(result.next())
+            {
+                long id = result.getLong(1);
+                String name = result.getString(2);
+                currencyTypes.put(name, id);
+            }
+        }
+        catch(Exception ex)
+        {
+        }
     }
 
     @Override
@@ -73,8 +92,11 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
     private Connection connection;
 
+    private PreparedStatement statement_select_player;
     private PreparedStatement statement_select_general;
-    private PreparedStatement statement_select_allCurrency;
+    private PreparedStatement statement_select_currency_type;
+
+    private PreparedStatement statement_insert_player;
 
     private PreparedStatement statement_update_general;
     private PreparedStatement statement_update_currency;
@@ -93,11 +115,14 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             connection = DriverManager.getConnection("jdbc:mysql://" + host+ ":" + port + "/" + database, username, password);
 
 
-            statement_select_general = connection.prepareStatement("SELECT statistics, kits, active_kit FROM minigame_players WHERE player_id = UUID_TO_BIN(?) AND minigame = ? LIMIT 1");
-            statement_select_allCurrency = connection.prepareStatement("SELECT currency, amount FROM minigame_currency WHERE player_id = UUID_TO_BIN(?) LIMIT 1");
+            statement_select_player = connection.prepareStatement("SELECT id FROM players WHERE uuid = UUID_TO_BIN(?) LIMIT 1");
+            statement_select_general = connection.prepareStatement("SELECT statistics, kits, active_kit FROM minigames WHERE player_id = ? AND minigame = ? LIMIT 1");
+            statement_select_currency_type = connection.prepareStatement("SELECT id, name FROM currency");
 
-            statement_update_general = connection.prepareStatement("INSERT INTO minigame_players (player_id, minigame, statistics, kits, active_kit) VALUES (UUID_TO_BIN(?), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE statistics = ?, kits = ?, active_kit = ?");
-            statement_update_currency = connection.prepareStatement("INSERT INTO minigame_currency (player_id, currency, amount) VALUES (UUID_TO_BIN(?), ?, ?) ON DUPLICATE KEY UPDATE amount = ?");
+            statement_insert_player = connection.prepareStatement("INSERT INTO players (uuid, last_name) VALUES (UUID_TO_BIN(?), ?) ON DUPLICATE KEY UPDATE last_name=?");
+
+            statement_update_general = connection.prepareStatement("INSERT INTO minigames (player_id, minigame, statistics, kits, active_kit) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE statistics = ?, kits = ?, active_kit = ?");
+            statement_update_currency = connection.prepareStatement("INSERT INTO player_currency (player_id, currency_id, amount) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE amount = amount + ?");
         }
     }
 
@@ -130,7 +155,15 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         this.minigame = minigame;
     }
 
-    private Map<@NotNull Player, PlayerBuffer> bufferMap = new HashMap<>();
+    private final Map<@NotNull Player, Long> playerIds = new HashMap<>();
+    public long getPlayerId(@NotNull Player player)
+    {
+        return playerIds.get(player);
+    }
+
+    private final Map<@NotNull String, Long> currencyTypes = new HashMap<>();
+
+    private final Map<@NotNull Player, PlayerBuffer> bufferMap = new HashMap<>();
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     private void onPlayerJoin(PlayerJoinEvent event)
@@ -138,11 +171,34 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         @NotNull
         Player player = event.getPlayer();
 
+        //TODO async?
         {
             PlayerBuffer buffer;
             try
             {
-                //TODO async?
+                // Load ID
+                {
+                    statement_select_player.setString(1, player.getUniqueId().toString()); // player_id (UUID)
+
+                    ResultSet result = statement_select_player.executeQuery();
+                    if(result.next())
+                        playerIds.put(player, result.getLong(1));
+                    else
+                        player.kickPlayer("Server closed - database problems");
+                }
+
+                // Register player
+                // This will later be on lobby
+                {
+                    statement_insert_player.setString(1, player.getUniqueId().toString()); // player_id (UUID)
+
+                    // last_name (string)
+                    statement_insert_player.setString(2, player.getName());
+                    statement_insert_player.setString(3, player.getName());
+
+                    statement_insert_player.execute();
+                }
+
                 buffer = load(player);
             }
             catch (Exception ex)
@@ -167,9 +223,9 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         @NotNull
         PlayerBuffer buffer = getPlayerBuffer(player);
 
+        //TODO async?
         try
         {
-            //TODO async?
             buffer.save(player);
         }
         catch (Exception ex)
@@ -177,8 +233,11 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             System.err.println(ex);
             return;
         }
-
-        bufferMap.remove(player);
+        finally
+        {
+            bufferMap.remove(player);
+            playerIds.remove(player);
+        }
     }
 
     @NotNull
@@ -190,17 +249,14 @@ public final class MinigameAPI extends JavaPlugin implements Listener
     public class PlayerBuffer
     {
         @NotNull
-        public final Map<@NotNull String, @NotNull Long> Currency_Old = new HashMap<>();
-        @NotNull
         public final Map<@NotNull String, @NotNull Long> Currency = new HashMap<>();
         public void addCurrency(@NotNull String currency, int amount)
         {
             Currency.put(currency, Currency.getOrDefault(currency, (long)0) + amount);
         }
-        public long getCurrency(@NotNull String currency)
-        {
-            return Currency.getOrDefault(currency, (long)0);
-        }
+
+        @NotNull
+        public JsonElement Statistics = new JsonObject();
 
         @NotNull
         public final List<@NotNull String> UnlockedKits = new ArrayList<>();
@@ -213,9 +269,9 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             {
                 // Main info
                 {
-                    statement_update_general.setString(1, player.getUniqueId().toString()); // player_id (UUID)
+                    statement_update_general.setLong(1, getPlayerId(player)); // player_id (UUID)
                     statement_update_general.setString(2, getMinigame().getCodename()); // minigame (varchar(32))
-                    statement_update_general.setString(3, "{}"); // statistics (JSON)
+                    statement_update_general.setString(3, Statistics.toString()); // statistics (JSON)
                     statement_update_general.setString(4, String.join(";", UnlockedKits)); // kits (TEXT, String array separated by ';')
                     statement_update_general.setString(5, SelectedKit); // active_kit (varchar(32))
 
@@ -230,10 +286,8 @@ public final class MinigameAPI extends JavaPlugin implements Listener
                     {
                         String key = kvp.getKey();
                         long amount = kvp.getValue();
-                        if(Currency_Old.getOrDefault(key, (long)0) == amount)
-                            continue;
 
-                        statement_update_currency.setString(2, key); // currency (varchar(32))
+                        statement_update_currency.setLong(2, currencyTypes.get(key)); // currency (varchar(32))
 
                         // amount (long)
                         statement_update_currency.setLong(3, amount);
@@ -241,9 +295,9 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
                         // Update in database
                         statement_update_currency.execute();
-                        // Update in cache
-                        Currency_Old.put(key, amount);
                     }
+
+                    Currency.clear();
                 }
 
                 return true;
@@ -261,13 +315,21 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
         // Main info
         {
-            statement_select_general.setString(1, player.getUniqueId().toString()); // player_id (UUID)
+            statement_select_general.setLong(1, getPlayerId(player)); // player_id
             statement_select_general.setString(2, getMinigame().getCodename()); // minigame (varchar(32))
 
             ResultSet result = statement_select_general.executeQuery();
             if(result.next())
             {
-                String statisticsJson = result.getString(1); //TODO Store statistics
+                try
+                {
+                    String statisticsJson = result.getString(1);
+                    buffer.Statistics = new JsonParser().parse(statisticsJson);
+                }
+                catch (Exception ex)
+                {
+                    buffer.Statistics = new JsonObject();
+                }
 
                 @Nullable
                 String kits = result.getString(2);
@@ -278,22 +340,6 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             }
             else
                 return null;
-        }
-
-        // Currency
-        {
-            statement_select_allCurrency.setString(1, player.getUniqueId().toString()); // player_id (UUID)
-
-            ResultSet result = statement_select_allCurrency.executeQuery();
-            while(result.next())
-            {
-                String key = result.getString(1);
-                long amount = result.getLong(2);
-
-                buffer.Currency_Old.put(key, amount);
-            }
-
-            buffer.Currency.putAll(buffer.Currency_Old);
         }
 
         return buffer;

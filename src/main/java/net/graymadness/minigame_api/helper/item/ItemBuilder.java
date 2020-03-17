@@ -1,7 +1,6 @@
 package net.graymadness.minigame_api.helper.item;
 
 import net.graymadness.minigame_api.helper.ColorHelper;
-import net.graymadness.minigame_api.helper.Nbt;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.TranslatableComponent;

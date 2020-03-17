@@ -1,6 +1,5 @@
 package net.graymadness.minigame_api.helper.item;
 
-import net.graymadness.minigame_api.helper.Nbt;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TranslatableComponent;
 import org.bukkit.Material;
@@ -88,6 +87,12 @@ public class ToolItem {
          */
         public void onUse(@NotNull Player player) {}
 
+        /**
+         *
+         * @param player
+         * @param entity
+         * @return
+         */
         public boolean onUseAtEntity(@NotNull Player player, @NotNull Entity entity) {
             return false;
         }
