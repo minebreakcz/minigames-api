@@ -20,15 +20,6 @@ public class API
         addCurrency(player, getMinigame().getCodename(), amount);
     }
 
-    public static long getCurrency(@NotNull Player player, @NotNull String type)
-    {
-        return MinigameAPI.getInstance().getPlayerBuffer(player).getCurrency(type);
-    }
-    public static long getMinigameCurrency(@NotNull Player player)
-    {
-        return getCurrency(player, getMinigame().getCodename());
-    }
-
     public static void registerMinigame(@NotNull IMinigame minigame)
     {
         MinigameAPI api = MinigameAPI.getInstance();
