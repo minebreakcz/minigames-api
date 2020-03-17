@@ -117,13 +117,13 @@ public final class MinigameAPI extends JavaPlugin implements Listener
 
 
             statement_select_player = connection.prepareStatement("SELECT id FROM players WHERE uuid = UUID_TO_BIN(?) LIMIT 1");
-            statement_select_general = connection.prepareStatement("SELECT statistics, kits, active_kit FROM minigames WHERE player_id = ? AND minigame = ? LIMIT 1");
+            statement_select_general = connection.prepareStatement("SELECT statistics, kit_unlocked, kit_active FROM player_minigame WHERE player_id = ? AND minigame_id = ? LIMIT 1");
             statement_select_minigame_id = connection.prepareStatement("SELECT id FROM minigames WHERE name = ?");
             statement_select_currency_type = connection.prepareStatement("SELECT id, name FROM currency");
 
             statement_insert_player = connection.prepareStatement("INSERT INTO players (uuid, last_name) VALUES (UUID_TO_BIN(?), ?) ON DUPLICATE KEY UPDATE last_name=?");
 
-            statement_update_general = connection.prepareStatement("INSERT INTO minigames (player_id, minigame, statistics, kits, active_kit) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE statistics = ?, kits = ?, active_kit = ?");
+            statement_update_general = connection.prepareStatement("INSERT INTO player_minigame (player_id, minigame, statistics, kits, active_kit) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE statistics = ?, kits = ?, active_kit = ?");
             statement_update_currency = connection.prepareStatement("INSERT INTO player_currency (player_id, currency_id, amount) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE amount = amount + ?");
         }
     }
