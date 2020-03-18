@@ -232,7 +232,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             }
             catch (Exception ex)
             {
-                System.err.println(ex);
+                System.err.println(ex.toString());
                 player.kickPlayer("Server closed - database problems");
                 return;
             }
@@ -259,7 +259,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         }
         catch (Exception ex)
         {
-            System.err.println(ex);
+            System.err.println(ex.toString());
             return;
         }
         finally
