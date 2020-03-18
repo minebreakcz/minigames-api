@@ -55,6 +55,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             catch(Exception ex)
             {
                 System.err.println("Failed to create connection to database");
+                System.err.println(ex.toString());
                 this.setEnabled(false);
                 return;
             }
@@ -81,6 +82,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         }
         catch(Exception ex)
         {
+            System.err.println(ex.toString());
         }
     }
 
@@ -177,6 +179,8 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         {
             minigame_id = 0;
             this.setEnabled(false);
+
+            System.err.println(ex.toString());
         }
     }
 
