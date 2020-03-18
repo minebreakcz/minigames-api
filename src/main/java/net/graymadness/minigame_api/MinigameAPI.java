@@ -55,7 +55,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             catch(Exception ex)
             {
                 System.err.println("Failed to create connection to database");
-                System.err.println(ex.toString());
+                ex.printStackTrace();
                 this.setEnabled(false);
                 return;
             }
@@ -82,7 +82,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         }
         catch(Exception ex)
         {
-            System.err.println(ex.toString());
+            ex.printStackTrace();
         }
     }
 
@@ -180,7 +180,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             minigame_id = 0;
             this.setEnabled(false);
 
-            System.err.println(ex.toString());
+            ex.printStackTrace();
         }
     }
 
@@ -232,7 +232,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             }
             catch (Exception ex)
             {
-                System.err.println(ex.toString());
+                ex.printStackTrace();
                 player.kickPlayer("Server closed - database problems");
                 return;
             }
@@ -259,7 +259,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
         }
         catch (Exception ex)
         {
-            System.err.println(ex.toString());
+            ex.printStackTrace();
             return;
         }
         finally
