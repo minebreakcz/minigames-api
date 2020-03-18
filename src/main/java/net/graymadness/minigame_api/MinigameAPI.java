@@ -205,16 +205,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
             PlayerBuffer buffer;
             try
             {
-                // Load ID
-                {
-                    statement_select_player.setString(1, player.getUniqueId().toString()); // player_id (UUID)
-
-                    ResultSet result = statement_select_player.executeQuery();
-                    if(result.next())
-                        playerIds.put(player, result.getLong(1));
-                    else
-                        player.kickPlayer("Server closed - database problems");
-                }
+                //TODO Return ID
 
                 // Register player
                 // This will later be on lobby
@@ -226,6 +217,17 @@ public final class MinigameAPI extends JavaPlugin implements Listener
                     statement_insert_player.setString(3, player.getName());
 
                     statement_insert_player.execute();
+                }
+
+                // Load ID
+                {
+                    statement_select_player.setString(1, player.getUniqueId().toString()); // player_id (UUID)
+
+                    ResultSet result = statement_select_player.executeQuery();
+                    if(result.next())
+                        playerIds.put(player, result.getLong(1));
+                    else
+                        player.kickPlayer("Server closed - database problems");
                 }
 
                 buffer = load(player);
