@@ -104,7 +104,7 @@ public final class MinigameAPI extends JavaPlugin implements Listener
     private PreparedStatement statement_update_general;
     private PreparedStatement statement_update_currency;
 
-    public void openConnection(@NotNull String host, int port, @NotNull String database, @NotNull String username, @NotNull String password) throws SQLException, ClassNotFoundException
+    public void openConnection(@NotNull String host, int port, @NotNull String database, @Nullable String username, @Nullable String password) throws SQLException, ClassNotFoundException
     {
         if (connection != null && !connection.isClosed())
             return;
@@ -133,17 +133,17 @@ public final class MinigameAPI extends JavaPlugin implements Listener
     public void openConnection(@NotNull ConfigurationSection config) throws SQLException, ClassNotFoundException
     {
         @NotNull
-        String host = config.getString("host", "localhost");
+        String host = config.getString("host");
 
-        int port = config.getInt("port", 3306);
-
-        @NotNull
-        String database = config.getString("database", "minigames");
+        int port = config.getInt("port");
 
         @NotNull
-        String username = config.getString("username", "root");
+        String database = config.getString("database");
 
-        @NotNull
+        @Nullable
+        String username = config.getString("username");
+
+        @Nullable
         String password = config.getString("password");
 
         openConnection(host, port, database, username, password);
