@@ -32,3 +32,24 @@ create table player_currency
 );
 
 
+# Those 2 functions are not required for MySQL but for MariaDB
+# MariaDB does not have them build-in but those are officially recommended implementations
+
+create function BIN_TO_UUID(_bin binary(16)) returns binary(36)
+    RETURN
+        LCASE(CONCAT_WS('-',
+                        HEX(SUBSTR(_bin, 5, 4)),
+                        HEX(SUBSTR(_bin, 3, 2)),
+                        HEX(SUBSTR(_bin, 1, 2)),
+                        HEX(SUBSTR(_bin, 9, 2)),
+                        HEX(SUBSTR(_bin, 11))
+            ));
+
+create function UUID_TO_BIN(hex binary(36)) returns binary(16)
+    RETURN
+        UNHEX(CONCAT(
+                SUBSTR(hex, 15, 4),
+                SUBSTR(hex, 10, 4),
+                SUBSTR(hex, 1, 8),
+                SUBSTR(hex, 20, 4),
+                SUBSTR(hex, 25)));
